@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 固件管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        #authContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #authContainer input {
+            margin: 10px 0;
+            padding: 8px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #authContainer button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #authContainer button:hover {
+            background-color: #0056b3;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .upload-section.dragover {
+            background-color: #e8f4fc;
+            border-color: #3498db;
+        }
+        .firmware-list {
+            list-style: none;
+            padding: 0;
+        }
+        .firmware-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .firmware-item:last-child {
+            border-bottom: none;
+        }
+        .firmware-info {
+            flex-grow: 1;
+        }
+        .firmware-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .firmware-version-size {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .firmware-version {
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+        .firmware-size {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .firmware-time {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-top: 2px;
+        }
+        .firmware-description {
+            color: #34495e;
+            font-size: 0.9em;
+            margin-top: 2px;
+            font-style: italic;
+        }
+        .description-input {
+            width: 90%;
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 60px;
+        }
+        .version-input {
+            border: 1px solid #ddd;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-left: 4px;
+        }
+        .edit-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+        .button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+        .download-btn {
+            background-color: #3498db;
+            color: white;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .copy-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+        .upload-btn {
+            background-color: #2ecc71;
+            color: white;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .message-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="authContainer" style="display: none;">
+        <h2>请输入访问密码</h2>
+        <input type="password" id="password" placeholder="请输入密码">
+        <button onclick="authenticate()">确认</button>
+    </div>
+
+    <div class="container" id="mainContent" style="display: none;">
+        <div id="modal-backdrop" class="modal-backdrop"></div>
+        <div id="message-modal" class="message-modal"></div>
+        <h1>ESP32 固件管理</h1>
+        
+        <div class="upload-section" id="upload-section" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+            <input type="file" id="firmware-file" style="display: none">
+            <button class="button upload-btn" onclick="document.getElementById('firmware-file').click()">选择固件文件</button>
+            <div id="message"></div>
+            <p>或将文件拖拽到此处上传</p>
+        </div>
+
+        <div id="firmware-list" class="firmware-list">
+            <!-- 固件列表将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script>
+        // 检查认证状态
+        async function checkAuth() {
+            try {
+                const response = await fetch('/check-auth');
+                const data = await response.json();
+                if (data.authenticated) {
+                    document.getElementById('authContainer').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    loadFirmwareList();
+                } else {
+                    document.getElementById('authContainer').style.display = 'flex';
+                    document.getElementById('mainContent').style.display = 'none';
+                }
+            } catch (error) {
+                showMessage('检查认证状态失败', true);
+            }
+        }
+
+        // 验证密码
+        async function authenticate() {
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch('/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('authContainer').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    loadFirmwareList();
+                } else {
+                    showMessage('密码错误', true);
+                }
+            } catch (error) {
+                showMessage('验证失败', true);
+            }
+        }
+
+        // 页面加载时检查认证状态
+        window.onload = checkAuth;
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 显示消息
+        function showMessage(message, isError = false) {
+            const modalBackdrop = document.getElementById('modal-backdrop');
+            const messageModal = document.getElementById('message-modal');
+            messageModal.textContent = message;
+            messageModal.style.backgroundColor = isError ? '#f8d7da' : '#d4edda';
+            messageModal.style.color = isError ? '#721c24' : '#155724';
+            
+            modalBackdrop.style.display = 'block';
+            messageModal.style.display = 'block';
+            
+            setTimeout(() => {
+                modalBackdrop.style.display = 'none';
+                messageModal.style.display = 'none';
+            }, 800);
+        }
+
+        // 加载固件列表
+        async function loadFirmwareList() {
+            try {
+                const response = await fetch('/list');
+                const data = await response.json();
+                const listElement = document.getElementById('firmware-list');
+                listElement.innerHTML = '';
+
+                data.files.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'firmware-item';
+                    const uploadDate = file.uploadTime ? new Date(file.uploadTime).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    }) : '未知';
+                    item.innerHTML = `
+                        <div class="firmware-info">
+                            <div class="firmware-name">
+                                <span class="name-text">${file.name}</span>
+                                <input type="text" class="name-input" style="display: none" value="${file.name}">
+                            </div>
+                            <div class="firmware-version-size">
+                                <div class="firmware-version">
+                                    <span>版本: </span>
+                                    <span class="version-text">${file.version}</span>
+                                    <input type="text" class="version-input" style="display: none" value="${file.version}">
+                                </div>
+                                <div class="firmware-size">${formatFileSize(file.size)}</div>
+                            </div>
+                            <div class="firmware-time">上传时间: ${uploadDate}</div>
+                        </div>
+                        <div>
+                            <a href="${file.url}" class="button download-btn">下载</a>
+                            <button class="button copy-btn" onclick="copyDownloadLink('${file.fullUrl}')">复制链接</button>
+                            <button class="button edit-btn" onclick="editVersion(this, '${file.name}')">修改</button>
+                            <button class="button delete-btn" onclick="deleteFirmware('${file.name}')">删除</button>
+                        </div>
+                    `;
+                    listElement.appendChild(item);
+                });
+            } catch (error) {
+                showMessage('加载固件列表失败', true);
+            }
+        }
+
+        // 删除固件
+        async function deleteFirmware(filename) {
+            if (!confirm(`确定要删除固件 ${filename} 吗？`)) return;
+
+            try {
+                const response = await fetch(`/firmware/${filename}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                showMessage(data.message);
+                loadFirmwareList();
+            } catch (error) {
+                showMessage('删除固件失败', true);
+            }
+        }
+
+        // 处理文件上传
+        document.getElementById('firmware-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.bin')) {
+                showMessage('只允许上传.bin文件', true);
+                return;
+            }
+            const version = prompt('请输入固件版本号 (格式: x.x.x):', '1.0.0');
+            if (!version) return;
+
+            const formData = new FormData();
+            formData.append('firmware', file);
+            formData.append('version', version);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                showMessage(data.message);
+                loadFirmwareList();
+                e.target.value = ''; // 清除文件选择
+            } catch (error) {
+                showMessage('上传固件失败', true);
+            }
+        });
+
+        // 复制下载链接
+        async function copyDownloadLink(url) {
+            try {
+                // 首先尝试使用 Clipboard API
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(url);
+                    showMessage('下载链接已复制到剪贴板');
+                    return;
+                }
+
+                // 备选方案：创建临时文本区域
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                    textArea.remove();
+                    showMessage('下载链接已复制到剪贴板');
+                } catch (err) {
+                    textArea.remove();
+                    throw new Error('复制失败：' + err.message);
+                }
+            } catch (error) {
+                console.error('复制链接失败:', error);
+                showMessage(`复制链接失败: ${error.message}`, true);
+            }
+        }
+
+        // 处理拖拽事件
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            document.getElementById('upload-section').classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            document.getElementById('upload-section').classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const uploadSection = document.getElementById('upload-section');
+            uploadSection.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const formData = new FormData();
+                const version = prompt('请输入固件版本号:', '1.0.0');
+            if (!version) return;
+
+            formData.append('firmware', files[0]);
+            formData.append('version', version);
+
+                // 创建上传进度提示元素
+                const progressDiv = document.createElement('div');
+                progressDiv.style.width = '100%';
+                progressDiv.style.height = '4px';
+                progressDiv.style.backgroundColor = '#f0f0f0';
+                progressDiv.style.marginTop = '10px';
+                progressDiv.style.borderRadius = '2px';
+                progressDiv.style.overflow = 'hidden';
+
+                const progressBar = document.createElement('div');
+                progressBar.style.width = '0%';
+                progressBar.style.height = '100%';
+                progressBar.style.backgroundColor = '#2ecc71';
+                progressBar.style.transition = 'width 0.3s';
+
+                progressDiv.appendChild(progressBar);
+                uploadSection.appendChild(progressDiv);
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/upload', true);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressBar.style.width = percentComplete + '%';
+                    }
+                };
+
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        showMessage(response.message);
+                        loadFirmwareList();
+                    } else {
+                        showMessage('上传固件失败', true);
+                    }
+                    // 移除进度条
+                    setTimeout(() => {
+                        progressDiv.remove();
+                    }, 1000);
+                };
+
+                xhr.onerror = function() {
+                    showMessage('上传固件失败', true);
+                    progressDiv.remove();
+                };
+
+                xhr.send(formData);
+            }
+        }
+
+        // 编辑固件信息
+        async function editVersion(btn, filename) {
+            const item = btn.closest('.firmware-item');
+            const nameDiv = item.querySelector('.firmware-name');
+            const nameText = nameDiv.querySelector('.name-text');
+            const nameInput = nameDiv.querySelector('.name-input');
+            const versionDiv = item.querySelector('.firmware-version');
+            const versionText = versionDiv.querySelector('.version-text');
+            const versionInput = versionDiv.querySelector('.version-input');
+
+            if (btn.textContent === '修改') {
+                nameText.style.display = 'none';
+                nameInput.style.display = 'inline';
+                versionText.style.display = 'none';
+                versionInput.style.display = 'inline';
+                nameInput.focus();
+                btn.textContent = '保存';
+            } else {
+                const newVersion = versionInput.value.trim();
+                const newFilename = nameInput.value.trim();
+                
+                if (!newVersion) {
+                    showMessage('版本号不能为空', true);
+                    return;
+                }
+                if (!newFilename) {
+                    showMessage('文件名不能为空', true);
+                    return;
+                }
+                if (!newFilename.endsWith('.bin')) {
+                    showMessage('文件名必须以.bin结尾', true);
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/firmware/${filename}/update`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            version: newVersion,
+                            newFilename: newFilename
+                        })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        showMessage(data.message);
+                        nameText.textContent = newFilename;
+                        versionText.textContent = newVersion;
+                        nameText.style.display = 'inline';
+                        nameInput.style.display = 'none';
+                        versionText.style.display = 'inline';
+                        versionInput.style.display = 'none';
+                        btn.textContent = '修改';
+                        // 如果文件名改变了，需要重新加载列表以更新下载链接
+                        if (newFilename !== filename) {
+                            loadFirmwareList();
+                        }
+                    } else {
+                        showMessage(data.error, true);
+                    }
+                } catch (error) {
+                    showMessage('更新固件信息失败', true);
+                }
+            }
+        }
+
+        // 初始加载固件列表
+        loadFirmwareList();
+    </script>
+</body>
+</html>
+    </script>
+</body>
+</html>
