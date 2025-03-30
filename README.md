@@ -17,6 +17,19 @@
 
 - Node.js (建议版本 >= 14)
 - pnpm 包管理器
+- PM2 (全局安装: `npm install -g pm2`)
+
+### 部署命令
+
+- 启动生产环境: `pnpm run deploy`
+- 停止服务: `pnpm run stop`
+- 重启服务: `pnpm run restart`
+- 查看日志: `pnpm run logs`
+
+### 注意事项
+1. 确保PM2已全局安装
+2. 生产环境会自动使用3000端口
+3. 日志文件保存在./logs目录下
 
 ### 安装步骤
 
