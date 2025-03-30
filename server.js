@@ -54,6 +54,16 @@ app.use(session({
 
 // 验证密码中间件
 const authMiddleware = (req, res, next) => {
+    // 允许设备直接访问固件文件
+    if (req.path.startsWith('/firmware/') && req.path.endsWith('.bin')) {
+        return next();
+    }
+    
+    // 添加对下载请求的直接放行
+    if (req.method === 'GET' && req.path.startsWith('/firmware/')) {
+        return next();
+    }
+
     if (req.session.authenticated || req.path === '/auth' || req.path === '/check-auth') {
         next();
     } else {
@@ -64,7 +74,9 @@ const authMiddleware = (req, res, next) => {
 // 应用验证中间件到所有API路由
 app.use('/upload', authMiddleware);
 app.use('/list', authMiddleware);
-app.use('/firmware', authMiddleware);
+
+// 静态文件服务（不需要认证）
+app.use('/firmware', express.static(firmwareDir));
 
 // 验证密码
 app.post('/auth', (req, res) => {
