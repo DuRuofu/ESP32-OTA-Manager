@@ -18,9 +18,7 @@ pnpm-debug.log*
 Thumbs.db
 
 # Project specific
-config.json
-firmware/*.bin
-firmware/versions.json
+firmware/
 
 # Logs
 logs

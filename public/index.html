@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 固件管理</title>
+    <title>FirmwareCloud</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -206,6 +206,7 @@
 </head>
 <body>
     <div id="authContainer" style="display: none;">
+        <h1>FirmwareCloud</h1>
         <h2>请输入访问密码</h2>
         <input type="password" id="password" placeholder="请输入密码">
         <button onclick="authenticate()">确认</button>
@@ -214,7 +215,7 @@
     <div class="container" id="mainContent" style="display: none;">
         <div id="modal-backdrop" class="modal-backdrop"></div>
         <div id="message-modal" class="message-modal"></div>
-        <h1>ESP32 固件管理</h1>
+        <h1>FirmwareCloud</h1>
         
         <div class="upload-section" id="upload-section" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
             <input type="file" id="firmware-file" style="display: none">
@@ -264,7 +265,9 @@
                     document.getElementById('mainContent').style.display = 'block';
                     loadFirmwareList();
                 } else {
-                    showMessage('密码错误', true);
+                    showMessage('访问密码错误，请重新输入', true);
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
                 }
             } catch (error) {
                 showMessage('验证失败', true);

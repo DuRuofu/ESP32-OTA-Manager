@@ -1,5 +1,5 @@
 {
-  "name": "esp32-ota-manager",
+  "name": "firmware-cloud",
   "version": "1.0.0",
   "description": "ESP32 OTA固件托管服务器",
   "main": "server.js",
